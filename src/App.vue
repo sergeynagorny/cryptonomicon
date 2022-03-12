@@ -96,7 +96,7 @@
                   {{ t.name }} - USD
                 </dt>
                 <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                  {{ t.price }}
+                  {{ formattedPrice(t.price) }}
                 </dd>
               </div>
               <div class="w-full border-t border-gray-200"></div>
@@ -135,8 +135,8 @@
         </h3>
         <div class="flex items-end border-gray-600 border-b border-l h-64">
           <div
-            v-for="bar in normalizedGraph"
-            :key="bar"
+            v-for="(bar, index) in normalizedGraph"
+            :key="index"
             class="bg-purple-800 border w-10"
             :style="{ height: bar + '%' }"
           ></div>
@@ -171,7 +171,8 @@
 </template>
 
 <script>
-import { getTickets } from "@/shared/api/api";
+import { subscribeToTickers } from "@/shared/api/api";
+import * as _ from "lodash";
 
 const TICKERS_PER_PAGE = 3;
 
@@ -186,17 +187,7 @@ export default {
   data() {
     return {
       ticker: "",
-      tickers: [
-        { id: 1, name: "DEMO1", price: "-", graph: ["22", "33", "67"] },
-        { id: 2, name: "DEMO2", price: "2", graph: ["22", "33"] },
-        { id: 4, name: "DEMO1", price: "-", graph: ["22", "33"] },
-        { id: 3, name: "DEMO3", price: "-", graph: ["22", "33"] },
-        { id: 5, name: "DEMO2", price: "2", graph: ["22", "33"] },
-        { id: 6, name: "DEMO3", price: "-", graph: ["22", "33"] },
-        { id: 7, name: "DEMO1", price: "-", graph: ["22", "33"] },
-        { id: 8, name: "DEMO2", price: "2", graph: ["22", "33"] },
-        { id: 9, name: "DEMO3", price: "-", graph: ["22", "33"] },
-      ],
+      tickers: [],
       filterSearchQuery: "",
       selectedTicker: null,
       currentPage: 1,
@@ -209,18 +200,10 @@ export default {
       new URL(window.location).searchParams.entries()
     );
 
-    console.log(this.currentPage);
-
     Object.keys(StateKeyByParamsName).forEach((key) => {
       if (windowData[key]) {
         this[StateKeyByParamsName[key]] = windowData[key];
       }
-    });
-    console.log(this.currentPage);
-  },
-  mounted() {
-    getTickets().then((r) => {
-      console.log(r);
     });
   },
   computed: {
@@ -260,11 +243,27 @@ export default {
       const newTicker = {
         name: this.ticker,
         price: "-",
+        graph: [],
       };
 
-      this.tickers.push(newTicker);
+      this.tickers = [...this.tickers, newTicker];
       this.ticker = "";
       this.filterSearchQuery = "";
+    },
+
+    updateTickers(data) {
+      Object.entries(data).forEach(([key, value]) => {
+        const ticker = this.tickers.find(({ name }) => name === key);
+        if (!ticker) return;
+        ticker.price = 1 / value;
+        ticker.graph.push(ticker.price);
+        console.log("ticker", ticker);
+      });
+    },
+
+    formattedPrice(price) {
+      if (_.isString(price)) return price;
+      return price > 1 ? price.toFixed(2) : price.toPrecision(2);
     },
 
     deleteTicker(tickerToRemove) {
@@ -291,6 +290,13 @@ export default {
       if (!newValue.includes(this.selectedTicker)) {
         this.selectedTicker = null;
       }
+
+      // select new ticker
+      this.selectedTicker = this.tickers.slice().pop() || null;
+
+      // subscribe tot tickers
+      const tickerNames = newValue.map(({ name }) => name);
+      subscribeToTickers(tickerNames, this.updateTickers);
     },
     filterSearchQuery() {
       // if we delete items
