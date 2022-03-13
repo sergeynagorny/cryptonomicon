@@ -96,7 +96,7 @@
                   {{ t.name }} - USD
                 </dt>
                 <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                  {{ formattedPrice(t.price) }}
+                  {{ t.isValid ? formattedPrice(t.price) : "❌" }}
                 </dd>
               </div>
               <div class="w-full border-t border-gray-200"></div>
@@ -171,7 +171,7 @@
 </template>
 
 <script>
-import { subscribeToTickers } from "@/shared/api/api";
+import { subscribeToTicker, unsubscribeFromTicker } from "@/shared/api/api";
 import * as _ from "lodash";
 
 const TICKERS_PER_PAGE = 3;
@@ -243,22 +243,31 @@ export default {
       const newTicker = {
         name: this.ticker,
         price: "-",
+        isValid: true,
         graph: [],
       };
 
       this.tickers = [...this.tickers, newTicker];
       this.ticker = "";
       this.filterSearchQuery = "";
+
+      subscribeToTicker(
+        newTicker.name,
+        (newPrice) => this.updateTicker(newTicker.name, { price: newPrice }),
+        () => this.updateTicker(newTicker.name, { isValid: false })
+      );
     },
 
-    updateTickers(data) {
-      Object.entries(data).forEach(([key, value]) => {
-        const ticker = this.tickers.find(({ name }) => name === key);
-        if (!ticker) return;
-        ticker.price = 1 / value;
-        ticker.graph.push(ticker.price);
-        console.log("ticker", ticker);
-      });
+    updateTicker(tickerName, { price, isValid = true }) {
+      const ticker = this.tickers.find(({ name }) => name === tickerName);
+      if (!ticker) return;
+
+      ticker.isValid = isValid;
+
+      if (price) {
+        ticker.price = price;
+        ticker.graph.push(price);
+      }
     },
 
     formattedPrice(price) {
@@ -268,6 +277,7 @@ export default {
 
     deleteTicker(tickerToRemove) {
       this.tickers = this.tickers.filter((t) => t !== tickerToRemove);
+      unsubscribeFromTicker(tickerToRemove.name);
     },
 
     setSelectedTicker(tickerToSelect) {
@@ -293,10 +303,6 @@ export default {
 
       // select new ticker
       this.selectedTicker = this.tickers.slice().pop() || null;
-
-      // subscribe tot tickers
-      const tickerNames = newValue.map(({ name }) => name);
-      subscribeToTickers(tickerNames, this.updateTickers);
     },
     filterSearchQuery() {
       // if we delete items
@@ -337,3 +343,4 @@ export default {
 
 <!-- TODO: COMMON: Add Graphic, Add API, Add Sort, Add Pagination Type (Lazy, Pages), Add localization, Add theme, Add Websockets -->
 <!-- TODO: INPUT: ON-TICKET-ADD: set focus, AutoComplete, Validate -->
+<!-- TODO: UI: Add Pulse on update, add gasp number animation on update -->
