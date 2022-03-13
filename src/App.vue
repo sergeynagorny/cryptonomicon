@@ -133,9 +133,13 @@
         <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
           {{ selectedTicker.name }} - USD
         </h3>
-        <div class="flex items-end border-gray-600 border-b border-l h-64">
+        <div
+          ref="graphContainer"
+          class="flex items-end border-gray-600 border-b border-l h-64"
+        >
           <div
-            v-for="(bar, index) in normalizedGraph"
+            v-for="(bar, index) in normalizedGraphs"
+            ref="graphElement"
             :key="index"
             class="bg-purple-800 border w-10"
             :style="{ height: bar + '%' }"
@@ -192,6 +196,7 @@ export default {
       selectedTicker: null,
       currentPage: 1,
       graph: [],
+      maxGraphElements: null,
     };
   },
   created() {
@@ -205,6 +210,12 @@ export default {
         this[StateKeyByParamsName[key]] = windowData[key];
       }
     });
+  },
+  mounted() {
+    window.addEventListener("resize", this.calculateMaxGraphElements);
+  },
+  beforeUnmount() {
+    window.addEventListener("resize", this.calculateMaxGraphElements);
   },
   computed: {
     tickerKeys() {
@@ -227,15 +238,20 @@ export default {
     paginatedTickers() {
       return this.filteredTickers.slice(...this.paginationIndexes);
     },
-    normalizedGraph() {
-      const max = Math.max(...this.graph);
-      const min = Math.min(...this.graph);
+    displayedGraphs() {
+      return this.graph?.slice(-this.maxGraphElements, this.graph.length) || [];
+    },
+    normalizedGraphs() {
+      const max = Math.max(...this.displayedGraphs);
+      const min = Math.min(...this.displayedGraphs);
 
       if (max === min) {
-        return this.graph.map(() => 50);
+        return this.displayedGraphs.map(() => 50);
       }
 
-      return this.graph.map((price) => 5 + ((price - min) * 95) / (max - min));
+      return this.displayedGraphs.map(
+        (price) => 5 + ((price - min) * 95) / (max - min)
+      );
     },
     pageStateOptions(state) {
       const { filterSearchQuery, currentPage } = state;
@@ -243,6 +259,14 @@ export default {
     },
   },
   methods: {
+    calculateMaxGraphElements() {
+      const containerWidth = this.$refs.graphContainer?.offsetWidth;
+      const [firstGraph] = this.$refs.graphElement || [];
+      const elementWidth = firstGraph?.offsetWidth;
+
+      if (!elementWidth || !containerWidth) return;
+      this.maxGraphElements = Math.floor(containerWidth / elementWidth);
+    },
     addTicker() {
       if (this.tickerKeys.includes(this.ticker)) return;
 
@@ -301,6 +325,9 @@ export default {
     },
   },
   watch: {
+    displayedGraphs() {
+      this.calculateMaxGraphElements();
+    },
     tickers(newValue) {
       // if deleted items is selected
       if (!newValue.includes(this.selectedTicker)) {
@@ -330,7 +357,7 @@ export default {
       }
     },
     pageStateOptions(pageState) {
-      // TODO: refactor
+      // TODO: refactor, use router
       let url = new URL(window.location);
 
       Object.entries(StateKeyByParamsName).forEach(([paramsName, stateKey]) => {
