@@ -207,10 +207,14 @@ export default {
     });
   },
   computed: {
+    tickerKeys() {
+      return _.map(this.tickers, "name");
+    },
     filteredTickers() {
-      return this.tickers.filter((ticker) =>
-        ticker.name.toLowerCase().includes(this.filterSearchQuery.toLowerCase())
-      );
+      const bySearch = ({ name }) =>
+        name.toLowerCase().includes(this.filterSearchQuery.toLowerCase());
+
+      return this.tickers.filter(bySearch);
     },
     totalPages() {
       return Math.ceil(this.filteredTickers.length / TICKERS_PER_PAGE);
@@ -240,6 +244,8 @@ export default {
   },
   methods: {
     addTicker() {
+      if (this.tickerKeys.includes(this.ticker)) return;
+
       const newTicker = {
         name: this.ticker,
         price: "-",
