@@ -325,9 +325,6 @@ export default {
     },
   },
   watch: {
-    displayedGraphs() {
-      this.calculateMaxGraphElements();
-    },
     tickers(newValue) {
       // if deleted items is selected
       if (!newValue.includes(this.selectedTicker)) {
@@ -343,6 +340,7 @@ export default {
     },
     selectedTicker(newValue) {
       this.graph = newValue?.graph;
+      this.$nextTick().then(this.calculateMaxGraphElements);
     },
     currentPage(newValue) {
       // if we get incorrect value from url search params
